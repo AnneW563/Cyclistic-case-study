@@ -1,0 +1,127 @@
+---
+title: "Cyclistic bike-share analysis"
+author: "Anne"
+date: "2024-02-14"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+```
+```{r}
+library(tidyverse)
+```
+```{r}
+bike_share_2023_processed <- read_rds("bike_share_2023_processed.RDS")
+```
+
+
+# Case study: How does a bike-share navigate speedy success?
+
+This is a case study completed as part of the Google Data Analytics Professional Certificate. The scenario is that a fictional bike-sharing company, Cyclistic, operating in Chicago, wishes to encourage more of their casual riders to become annual members. The data used is publicly available data from the City of Chicago’s Divvy bicycle sharing service. The license details for this data can be found [here](https://divvybikes.com/data-license-agreement).
+
+I have been tasked with answering the following question.
+
+**How do annual members and casual riders use Cyclistic bikes differently?**
+
+## Business task
+Identify how annual members and casual riders differ in their use of Cyclistic bikes in order to understand why casual riders might choose to buy Cyclistic annual memberships and how digital media could influence them to do so.
+
+## Data
+I decided to use data for the most recent complete year - that is for 2023. The data includes details for each ride: start time, end time, the station the ride started from and the station it ended at, together with the type of rider, that is whether they are a member or a casual rider.
+
+## Analysis
+The results of my analysis showed some differences in both the time of day and the day of the week the different types of rider used the bikes.There were also differences in which stations were most used. These differences suggested to me that casual riders were more likely to use the bikes for leisure than the members were, the members being more likely to use them for commuting.
+
+### Number of trips by day of week
+Looking at when in the week each of the two groups most often use the bikes, it can be seen that, while the number of trips by members is at its highest on week days, the reverse is true for casual riders - they are using the bikes most often at weekends.
+
+```{r}
+new_labels <- c("member" = "Cyclistic Members", "casual" = "Casual Riders")
+
+p1 <- bike_share_2023_processed %>%
+  ggplot(mapping = aes(x = day_of_week, fill = member_casual)) +
+  geom_bar() +
+  facet_wrap(~ member_casual, labeller = labeller(member_casual = new_labels)) +
+  scale_fill_manual(values = c("#f28e2b","#4e79a7"))
+
+```
+
+```{r}
+
+p1 + labs(x = "Day of week", y = "Number of rides (thousands)") +
+  scale_x_continuous(breaks = c(1,2,3,4,5,6,7), labels=c("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")) +
+  scale_y_continuous(breaks = c(0, 100000, 200000, 300000, 400000), labels = c("0", "100", "200", "300", "400")) +
+  theme(legend.position = "none",
+        plot.title = element_text(face = "bold", hjust = 0.5),
+        strip.background = element_rect(fill="white")) +
+  labs(title = "Number of Rides by Day of Week",
+       subtitle = "The number of rides made on each day of the week for casual riders and for Cyclistic members.") 
+```
+
+### Number of rides by time of day
+The plot shows the number of rides taken for each hour of the day for each group of riders. The number of rides made by casual riders gradually increases through the day up until 5pm and then decreases. The number of rides made by the Cyclistic members has two peaks, one at 8am and the other at 5pm, suggesting that a lot of these rides are for commuting to work.
+```{r}
+  p3 <- ggplot(bike_share_2023_processed, mapping = aes(x = hour(started_at), fill = member_casual)) +
+  geom_bar() +
+  facet_wrap(~member_casual, labeller = labeller(member_casual = new_labels))
+```
+
+```{r}
+p3 <- p3 +
+  scale_fill_manual(values = c("#f28e2b","#4e79a7")) +
+  labs(x = "Time of Day", y = "Number of rides (thousands)") +
+  scale_x_continuous(breaks = c(0,4,8,12,16,20), labels=c("0:00", "4:00", "8:00", "12:00", "16:00", "20:00")) +
+  scale_y_continuous(breaks = c(0, 100000, 200000, 300000), labels = c("0", "100", "200", "300")) +
+  theme(legend.position = "none",
+        plot.title = element_text(face = "bold", hjust = 0.5),
+        strip.background = element_rect(fill="white")) +
+  labs(title = "Number of Rides by Time of Day",
+       subtitle = "The number of rides in each hour of the day for casual riders and for Cyclistic members.")
+```
+
+```{r}
+# Create a data frame for the annotations - this gives the parameters needed for geom_text
+annotation_df <- data.frame(
+  member_casual = c( "casual","member", "member"),
+  label = c("17:00", "8:00", "17:00"),
+  x_pos = c(17, 8, 17),
+  y_pos = c(160000, 205000, 310000)
+  )
+
+p3 +
+  geom_text(mapping = aes(x = x_pos, y = y_pos, label = label), data = annotation_df)
+  
+```
+
+### Average ride length by day of week
+Here we can see the mean length of the rides taken by each group. Rides that were longer than 24 hours have been excluded since the longest rides could skew the mean, the longest being over 8 days. It can be seen that the rides taken by the casual riders are on average longer that those taken by the members.
+```{r}
+days_of_rides <- bike_share_2023_processed %>% 
+  filter(ride_length < 1440) %>% 
+  group_by(day_of_week, member_casual) %>% 
+  summarise(mean_ride_length = as.numeric(mean(ride_length)))
+```
+
+```{r}
+p2 <- ggplot(days_of_rides, mapping = aes(x = day_of_week, y = mean_ride_length, fill = member_casual)) +
+  geom_col() +
+  facet_wrap(~ member_casual, labeller = labeller(member_casual = new_labels))
+```
+
+```{r}
+p2 +
+  scale_fill_manual(values = c("#f28e2b","#4e79a7")) +
+  labs(x = "Day of week", y = "Mean ride length (minutes)") +
+  scale_x_continuous(breaks = c(1,2,3,4,5,6,7), labels=c("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")) +
+  theme(legend.position = "none",
+        plot.title = element_text(face = "bold", hjust = 0.5),
+        strip.background = element_rect(fill="white")) +
+  labs(title = "Average Ride Length",
+       subtitle = "The mean ride length for each day of the week for casual riders and for Cyclistic members.") 
+```
+
+### Number of rides from each station
+A significant proportion of the casual riders journeys started from relatively few stations. The most popular ones were in the tourist areas.
+
+![Map of Chicago area with bike_share stations sized to show the number of rides starting there for casual riders and Cyclistic members](cyclistic_station_map.png)
