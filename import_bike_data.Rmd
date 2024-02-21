@@ -1,0 +1,30 @@
+---
+title: "Importing Bike-share Data"
+author: "Anne"
+date: "2024-02-21"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## Loading required packages
+```{r}
+library(tidyverse)
+```
+## Importing the bike-share data
+All the csv files for 2023 are imported and combined together to create the data frame bike_share_2023.
+list.files produces a character vector of all the relative file paths in the folder *bike_share_csv_files*.
+lapply applies the function read_csv to the file paths in the vector
+bind_rows combines all the rows into one data frame.
+
+```{r}
+bike_share_2023 <- list.files(path = "bike_share_csv_files", pattern = "*.csv", full.names = TRUE) %>% 
+  lapply(read_csv) %>% 
+  bind_rows()
+```
+The bike_share_2023 data frame is then saved as bike_share_2023-raw.RDS
+```{r}
+write_rds(bike_share_2023, file = "bike_share_2023_raw.RDS")
+```
