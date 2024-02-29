@@ -1,13 +1,22 @@
 ---
 title: "Cleaning the bike-share data"
-author: "Anne"
-date: "2024-02-21"
+author: "Anne Wilson"
+date: "2024-02-29"
 output: html_document
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
+
+```{r}
+knit: (function(input_file, encoding) {
+    out_dir <- 'docs';
+    rmarkdown::render(input_file,
+      encoding=encoding,
+      output_file=file.path(dirname(input_file), out_dir, 'index.html'))})
+```
+
 ## Loading required packages
 ```{r echo = FALSE}
 library(tidyverse)
@@ -24,26 +33,28 @@ for (i in 1:13) {
   print(paste("Column ", i, ": ", sum(is.na(bike_share_2023[,i]))))
 }
 ```
-Remove all rows with *na* anywhere since the data in those rows is probably not reliable. Save the data to a new data frame - bike_share_2023_cleaned.
+Remove all rows with na anywhere since the data in those rows is probably not reliable. Save the data to a new data frame - bike_share_2023_cleaned.
 ```{r}
 bike_share_2023_cleaned <- bike_share_2023 %>% 
   drop_na()
 ```
 
-Check that all the *na*s have been removed and look at the data frame.
+Check that all the na values have been removed and look at the data frame.
 ```{r}
 for (i in 1:13) {
   print(paste("Column ", i, ": ", sum(is.na(bike_share_2023_cleaned[,i]))))
 }
 glimpse(bike_share_2023_cleaned)
 ```
+
 There are 4,331,707 rows left out of the original 5,719,877 so about one quarter of the original data has now been deleted.
 
-Next, the data is checked to make sure there are no duplicates. This is done by checking the *ride_id* column, which should be unique.
+Next, the data is checked to make sure there are no duplicates. This is done by checking the ride_id column, which should be unique.
 ```{r}
 bike_share_2023_cleaned %>% 
   get_dupes(ride_id)
 ```
+
 There are no duplicates. Next the data is sorted by the started_at time.
 ```{r}
 bike_share_2023_cleaned <- bike_share_2023_cleaned %>%
@@ -56,6 +67,7 @@ The values in the member_casual column should be 'member' or 'casual'. The data 
 bike_share_2023_cleaned %>% 
   filter((member_casual != "member") & (member_casual != "casual"))
 ```
+
 The member-casual column is good. Now the values in the rideable_type column are checked - these should be 'classic_bike' or 'electric_bike'.
 Inspect the rideable_type to see what values this takes, and how many occurrences of each.
 ```{r}
@@ -63,6 +75,7 @@ bike_share_2023_cleaned %>%
   group_by(rideable_type) %>% 
   summarise(count = n())
 ```
+
 This shows there are some bikes listed as 'docked_bikes'. Some internet research shows that classic bikes were called docked bikes before electric bikes were introduced to the scheme in July 2020 Since the docked bikes in this data are classic bikes that have not been re-labelled, 'docked_bike' can now be replaced with 'classic_bike'.
 ```{r}
 bike_share_2023_cleaned <-  bike_share_2023_cleaned %>% 
@@ -79,17 +92,20 @@ Look at a summary of the data to check for potentially problematic values.
 ```{r}
 summary(bike_share_2023_cleaned)
 ```
+
 This summary shows that there is a minimum of 0.00 for the end latititude (end_lat column) and a maximum of 0.00 for the end longitude (end_lng). These values are obviously wrong so need investigating. First the data is sorted by the end_lat column.
 ```{r}
 bike_share_2023_cleaned %>% 
   arrange(end_lat)
 ```
+
 There are three rows with end_lat and end_lng equal to zero. The first two seem to be some sort of test, with the ride time at less than five minutes and a test end station. These rows can be removed. The third row has a valid end_station_name and end_station_id (653B) so it should be possible to replace the end_lat and end_lng with the correct values.
 Filter the data to find the correct latitude and longitude for station 653B.
 ```{r}
 bike_share_2023_cleaned %>% 
   filter(end_station_id == "653B")
 ```
+
 The end_lat for this station appears to be 41.78000 and the end_lng -87.59000. However we need to check that the end_lat and and end_lng are the same in all rows for this station (excluding the single row for which they are zero) - to do this we look at the maximum and minimum values.
 
 ```{r}
@@ -99,6 +115,7 @@ df <- bike_share_2023_cleaned %>%
             max_end_lng = max(end_lng), min_end_lng = min(end_lng))
 df
 ```
+
 A quick inspection of the data shows that two values are used for end_lat and end_long, but this is just due to rounding. The zero values for ride_id 43107577DF9B498D can be set to either of these values but we use the less rounded values, given here as max_end_lat and max_end_lng.
 ```{r}
 bike_share_2023_cleaned$end_lat[bike_share_2023_cleaned$ride_id == "43107577DF9B498D"] <- df$max_end_lat[1]
@@ -110,26 +127,31 @@ The two remaining rows with zero for end_lat and end_lng are now removed.
 bike_share_2023_cleaned <- bike_share_2023_cleaned %>% 
   filter(end_lat != 0)
 ```
+
 Next we need to check if the test station appears elsewhere in the data.
 ```{r}
 bike_share_2023_cleaned %>% 
   filter(start_station_id == "OH Charging Stx - Test" | end_station_id == "OH Charging Stx - Test")
 ```
+
 There are 12 rows with this test station and all the rides are less than a minute long, so these rows can be deleted.
 ```{r}
 bike_share_2023_cleaned <-  bike_share_2023_cleaned %>% 
   filter(start_station_id != "OH Charging Stx - Test" | end_station_id != "OH Charging Stx - Test")
 ```
-Next the times are checked to make sure that the ended_at times are all later than the corresponding started_at times. This should only be possible on 2023-11-05 when the daylight saving time ended and the clocks went backward.
+
+Next the times are checked to make sure that the ended_at times are all later than the corresponding started_at times. This should only be possible on 2023-11-05 when the daylight saving time ended and the clocks went back.
 ```{r}
 bike_share_2023_cleaned %>% 
   filter(ended_at < started_at)
 ```
+
 This shows that 66 rows have ended_at times earlier than the started_at times. Most, but not all, of these are related to the clocks changing on 2023-11-05. Since these are only a few rows out of a large data set, they can be deleted.
 ```{r}
 bike_share_2023_cleaned <- bike_share_2023_cleaned %>% 
   filter(ended_at >= started_at)
 ```
+
 Now look at the summary again.
 ```{r}
 summary(bike_share_2023_cleaned)

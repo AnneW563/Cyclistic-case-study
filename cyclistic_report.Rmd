@@ -1,17 +1,24 @@
 ---
 title: "Cyclistic bike-share analysis"
-author: "Anne"
-date: "2024-02-14"
+# author: "Anne Wilson"
+date: "2024-02-29"
 output: html_document
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
 ```
+
+```{r}
+knit: (function(input_file, encoding) {
+    out_dir <- 'docs';
+    rmarkdown::render(input_file,
+      encoding=encoding,
+      output_file=file.path(dirname(input_file), out_dir, 'index.html'))})
+```
+
 ```{r}
 library(tidyverse)
-```
-```{r}
 bike_share_2023_processed <- read_rds("bike_share_2023_processed.RDS")
 ```
 
@@ -25,16 +32,16 @@ I have been tasked with answering the following question.
 **How do annual members and casual riders use Cyclistic bikes differently?**
 
 ## Business task
-Identify how annual members and casual riders differ in their use of Cyclistic bikes in order to understand why casual riders might choose to buy Cyclistic annual memberships and how digital media could influence them to do so.
+Identify how annual members and casual riders differ in their use of Cyclistic bikes to understand why casual riders might choose to buy Cyclistic annual memberships and how digital media could influence them to do so.
 
 ## Data
-I decided to use data for the most recent complete year - that is for 2023. The data includes details for each ride: start time, end time, the station the ride started from and the station it ended at, together with the type of rider, that is whether they are a member or a casual rider.
+I decided to use data for the most recent complete year - that is for 2023. The data includes details for each ride: start time, end time, the station the ride started from, the station it ended at and the type of rider (member or casual). A limitation of this data is that it is not possible to determine how individual riders are using the bikes - there could be relatively few riders using the bikes every day, several times a day, or there could be lots of riders taking the bikes out just once or twice in the year. This is something that could be very different between members and casual riders, and is important to take note of when considering the likelihood that casual riders will choose to become members.
 
 ## Analysis
-The results of my analysis showed some differences in both the time of day and the day of the week the different types of rider used the bikes.There were also differences in which stations were most used. These differences suggested to me that casual riders were more likely to use the bikes for leisure than the members were, the members being more likely to use them for commuting.
+The results of my analysis showed some differences in both the time of day and the day of the week that the bikes were used by the two groups of riders. There were also differences in the lengths of the rides and the stations which were most used. I also looked at variations in the number and length of rides across the year, but these were very similar for both groups of riders. These differences suggest that more of the rides made by casual riders were for leisure than is the case for rides made by members, which were more likely to be for commuting.
 
 ### Number of trips by day of week
-Looking at when in the week each of the two groups most often use the bikes, it can be seen that, while the number of trips by members is at its highest on week days, the reverse is true for casual riders - they are using the bikes most often at weekends.
+Looking at the number of rides taken on each day of the week for each group, it can be seen that, while the number of trips by members is at its highest on week days, the reverse is true for casual riders - they are using the bikes most often at weekends.
 
 ```{r}
 new_labels <- c("member" = "Cyclistic Members", "casual" = "Casual Riders")
@@ -95,7 +102,9 @@ p3 +
 ```
 
 ### Average ride length by day of week
-Here we can see the mean length of the rides taken by each group. Rides that were longer than 24 hours have been excluded since the longest rides could skew the mean, the longest being over 8 days. It can be seen that the rides taken by the casual riders are on average longer that those taken by the members.
+The maximum ride length for members is 25 hours and for the casual riders, it is over eight days. However, very few of the rides are over 24 hours and it is possible that some of these could be due to people failing to return the bikes correctly. The data used here to calculate the mean has been filtered to exclude all rides longer than 24 hours.
+
+The plot shows the mean length of the rides taken by each group. It can be seen that the rides taken by the casual riders are on average longer that those taken by the members, particularly at weekends. Taken across the whole week, the mean ride length for casual riders is 23 minutes and for members, it is 12 minutes.
 ```{r}
 days_of_rides <- bike_share_2023_processed %>% 
   filter(ride_length < 1440) %>% 
@@ -121,7 +130,47 @@ p2 +
        subtitle = "The mean ride length for each day of the week for casual riders and for Cyclistic members.") 
 ```
 
+A closer look at the distribution of those rides is given in the two plots below. It can be seen that the bulk of the rides for both members and casual riders are shorter than 15 minutes, but a higher proportion of the rides taken by casual riders are longer.
+
+```{r}
+bike_share_2023_processed %>% 
+  filter(ride_length < 60) %>% 
+  ggplot(mapping = aes(x = as.numeric(ride_length), fill = member_casual)) +
+  geom_histogram(binwidth = 5, boundary = 0) +
+  facet_wrap(~member_casual, labeller = labeller(member_casual = new_labels)) +
+  scale_fill_manual(values = c("#f28e2b","#4e79a7")) +
+  theme(legend.position = "none",
+        plot.title = element_text(face = "bold", hjust = 0.5),
+        strip.background = element_rect(fill="white")) +
+  labs(title = "Ride Length",subtitle = "Number of rides by length of ride, up to one hour long.", x = "Ride length (minutes)", y = "Number of rides")
+```
+
+```{r}
+bike_share_2023_processed %>%
+  filter(ride_length > 60 & ride_length < 720) %>% 
+  ggplot(mapping = aes(x = as.numeric(ride_length)/60, fill = member_casual)) +
+  scale_x_continuous(breaks = c(2,4,6,8,10,12), labels=c("2", "4", "6", "8", "10", "12")) +
+  coord_cartesian(xlim = c(1, 12))  +
+  geom_histogram(binwidth = 1, boundary = 1) +
+  facet_wrap(~member_casual, labeller = labeller(member_casual = new_labels)) +
+  scale_fill_manual(values = c("#f28e2b","#4e79a7")) +
+  theme(legend.position = "none",
+        plot.title = element_text(face = "bold", hjust = 0.5),
+        strip.background = element_rect(fill="white")) +
+  labs(title = "Ride Length",subtitle = "Number of rides by length of ride, up to 12 hours long.", x = "Ride length (hours)", y = "Number of rides")
+```
+
 ### Number of rides from each station
-A significant proportion of the casual riders journeys started from relatively few stations. The most popular ones were in the tourist areas.
+A map for each group of riders, showing the number of rides starting from each station, has been produced using Tableau. For casual riders, a few stations account for a large number of rides - these stations are at tourist locations or along the lake shore. For members, there are a lot of stations that are moderately busy, and these are scattered throughout the business districts of Chicago, including the tourist locations.
 
 ![Map of Chicago area with bike_share stations sized to show the number of rides starting there for casual riders and Cyclistic members](cyclistic_station_map.png)
+
+### Use of electic and classic bikes
+There are two types of bike available in the Cyclistic bike-share scheme - electric bikes and classic bikes. The proportion of rides made on electric bikes was slightly higher for casual riders (38%) than for members (35%) but the difference is small. The use of electric and classic bikes by both groups showed a similar pattern across the week and across the year.
+
+## Conclusions
+The number of rides for the casual rider group is highest at weekends and does not show the rush hour peaks that are seen for members, suggesting that few of the casual riders are using the bikes for commuting. The average ride length for casual riders is longer, though most rides for both groups are less than 20 minutes long. This information, together with the locations of the stations most used by casual riders, suggest that a high proportion of the rides taken by casual riders are for leisure rather than work.
+
+## Recommendations
+Any digital marketing to persuade casual riders to become members should focus on the benefits of membership for those using the bikes for leisure activities, at weekends and for longer rides. It should be considered, however, that a lot of the casual rides could be by visitors to the city or by people who only wish to use the bikes once or twice a year. These people are unlikely to want to become members. If there is data available that includes some rider information, further analysis could be done to identify how many people are using the bikes regularly and how many very rarely. This is important to consider when working out how successful a digital media campaign is be likely to be.
+

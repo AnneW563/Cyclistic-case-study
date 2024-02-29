@@ -1,7 +1,7 @@
 ---
 title: "Processing the bike-share data"
-author: "Anne"
-date: "2024-02-21"
+author: "Anne Wilson"
+date: "2024-02-29"
 output: html_document
 ---
 
@@ -9,11 +9,26 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## Transforming the data
-It would be useful to know how long the rides were since this is something that might be different for casual riders and members, so I will create a ride_length column. The ride_length values are rounded to the nearest minute, since we don't need second level precision.
-I also create a day_of_week column giving the day of the week the ride started.
-It might also be useful to get the time of year - it might be that casual riders tend not to ride as much in the winter, so I add a month column.
 
+```{r}
+knit: (function(input_file, encoding) {
+    out_dir <- 'docs';
+    rmarkdown::render(input_file,
+      encoding=encoding,
+      output_file=file.path(dirname(input_file), out_dir, 'index.html'))})
+```
+
+## Loading required packages
+```{r echo = FALSE}
+library(tidyverse)
+```
+
+```{r}
+bike_share_2023_cleaned <- read_rds("bike_share_2023_cleaned.RDS")
+```
+
+## Transforming the data
+First some calculated columns are added to the data. These give the ride length, day of week the ride started and the month the ride started. The ride lengths are rounded to the nearest minute.
 ```{r}
 bike_share_2023_processed <-  bike_share_2023_cleaned %>% 
   add_column(ride_length = round(difftime(bike_share_2023_cleaned$ended_at, bike_share_2023_cleaned$started_at, units = "mins"))) %>% 
@@ -21,378 +36,42 @@ bike_share_2023_processed <-  bike_share_2023_cleaned %>%
   add_column(month = month(bike_share_2023_cleaned$started_at))
 ```
 
+Look at the data.
 ```{r}
 glimpse(bike_share_2023_processed)
 ```
-I would like to know the range of values in ride_length.
+Now a summary of the ride lengths is generated to look at the mean, median, minimum and maximum.
 ```{r}
 bike_share_2023_processed %>% 
   summarise(mean_ride_length = mean(ride_length), median_ride_length = median(ride_length), min_ride_length = min(ride_length), max_ride_length = max(ride_length))
 ```
 There is at least one ride of length zero and there is a ride of length 12136 minutes, that is over 8 days - this might be an outlier and may cause problems with the analysis.
 Rides of less than one minute are unlikely to be genuine rides. Filter to look at the rides that are less than one minute.
-
 ```{r}
 bike_share_2023_processed %>% 
   filter(ride_length < 1)
 ```
 
-There are 55907 of these rows. I will delete them to avoid them skewing the final analysis.
+There are 55907 of these rows with ride length less than one minute. These are deleted to avoid them skewing the final analysis.
 ```{r}
 bike_share_2023_processed <- bike_share_2023_processed %>% 
   filter(ride_length > 1)
 ```
 
-Now I will investigate the possible outlier. How many rides are more than 24 hours (1440 minutes)?
+Next the data is filtered to see how many rides there are that are more than 24 hours (1440 minutes).
 ```{r}
 bike_share_2023_processed %>% 
   arrange(-ride_length) %>% 
   filter(ride_length > 1440)
 ```
-While there are not many rides longer than 24 hours, there are over 100 of them and they are likely to be real data so I will keep them.
 
-```{r}
-View(bike_share_2023_processed)
-```
-Save the processed data as bike_share_2023_processed.
+While there are not many rides longer than 24 hours, there are over 100 of them and they are likely to be real data, so these will be kept but they may need to be handled separately for some of the analysis.
+
+Now the data is ready to be analysed, so the processed data in the data frame bike_share_2023_processed is saved to RDS and CSV files.
 ```{r}
 write_rds(bike_share_2023_processed, file = "bike_share_2023_processed.RDS")
 write_csv(bike_share_2023_processed, "bike_share_2023_processed.csv")
 ```
-
-## Analysis
-
-```{r}
-bike_share_2023_processed %>% 
-  group_by(member_casual) %>% 
-  summarise(min_duration = min(ride_length), max_duration = max(ride_length))
-```
-
-
-Bar chart of ride length, split into members and casual riders. Most of the rides are short so we will filter to just show those less than one hour.
-```{r}
-bike_share_2023_processed %>% 
-  filter(ride_length < 60) %>% 
-  ggplot(mapping = aes(x = as.numeric(ride_length), fill = member_casual)) +
-  geom_histogram(binwidth = 5)
-
-```
-It might be better to show two histograms using facet_wrap.
-```{r}
-bike_share_2023_processed %>% 
-  filter(ride_length < 60) %>% 
-  ggplot(mapping = aes(x = as.numeric(ride_length), fill = member_casual)) +
-  geom_histogram(binwidth = 5) +
-  facet_wrap(~member_casual)
-```
-Now look at rides between 1 and 12 hours long.
-```{r}
-bike_share_2023_processed %>% 
-  filter(ride_length > 60 & ride_length < 720) %>% 
-  ggplot(mapping = aes(x = as.numeric(ride_length), fill = member_casual)) +
-  geom_histogram(binwidth = 60) +
-  facet_wrap(~member_casual)
-```
-And rides longer than 12 hours.
-```{r}
-bike_share_2023_processed %>% 
-  filter(ride_length > 720) %>% 
-  ggplot(mapping = aes(x = as.numeric(ride_length), fill = member_casual)) +
-  geom_histogram(binwidth = 720) +
-  facet_wrap(~member_casual)
-```
-From which we can see that the majority of rides are less than an hour for both casual riders and members but more casual riders are doing rides longer than an hour than members are.
-
-Now consider what day of week do people start their ride - again split by casual riders and members.
-
-```{r}
-new_labels <- c("member" = "Cyclistic Members", "casual" = "Casual Riders")
-
-p1 <- bike_share_2023_processed %>%
-  ggplot(mapping = aes(x = day_of_week, fill = member_casual)) +
-  geom_bar() +
-  facet_wrap(~ member_casual, labeller = labeller(member_casual = new_labels)) +
-  scale_fill_manual(values = c("#f28e2b","#4e79a7"))
-
-```
-There are more casual riders at weekends, whereas there are more members riding in the week.
-```{r}
-
-p1 + labs(x = "Day of week", y = "Number of trips (thousands)") +
-  scale_x_continuous(breaks = c(1,2,3,4,5,6,7), labels=c("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")) +
-  scale_y_continuous(breaks = c(0, 100000, 200000, 300000, 400000), labels = c("0", "100", "200", "300", "400")) +
-  theme(legend.position = "none",
-        plot.title = element_text(face = "bold", hjust = 0.5),
-        strip.background = element_rect(fill="white")) +
-  labs(title = "Number of Trips",
-       subtitle = "The number of trips made on each day of the week for casual riders and for Cyclistic members.") 
-```
-
-
-
-Now look at the month.
-```{r}
-bike_share_2023_processed %>%
-  ggplot(mapping = aes(x = month, fill = member_casual)) +
-  geom_bar() +
-  facet_wrap(~member_casual)
-```
-Both members and casual riders ride less in the winter.
-Now consider time of day.
-```{r}
-bike_share_2023_processed %>%
-  ggplot(mapping = aes(x = hour(started_at), fill = member_casual)) +
-  geom_bar() +
-  facet_wrap(~member_casual)
-```
-There are clear peaks at the start and end of the working day for members but not for casual riders, which would suggest that fewer casual riders are using the bikes to commute to work (or they are working more variable hours).
-
-Now look at locations.
-
-To do this I will group by start_station_id to create a new data frame giving a count of the number of rides starting at each station.
-```{r}
-station_ride_nums <- bike_share_2023_processed %>%
-  # Average the start_lat and start_lng because they differ in the later digits for the same station.
-  select(start_station_id, start_station_name, start_lat, start_lng, member_casual) %>% 
-  group_by(member_casual, start_station_id, start_station_name) %>%
-  summarise(number_of_rides = n(), start_latitude = round(mean(start_lat), 3), start_longitude = round(mean(start_lng), 3), )
-```
-```{r}
-station_ride_nums
-```
-
-Save this data frame to a csv file to look at in Tableau.
-```{r}
-write_csv(station_ride_nums, "station_ride_nums.csv")
-write_rds(station_ride_nums, "station_ride_nums.RDS")
-```
-
-Now consider which are the top starting stations for casual users and for members and what proportion these make up of all rides.
-
-```{r}
-df <- station_ride_nums %>% 
-  group_by(member_casual) %>% 
-  reframe(start_station_id, start_station_name, total_rides = sum(number_of_rides), number_of_rides, percentage_of_rides = (number_of_rides / total_rides) * 100)
-```
-
-
-Now filter and sort for members.
-```{r}
-members <- df %>% 
-  filter(member_casual == "member") %>% 
-  arrange(-number_of_rides)
-head(members, 30)
-```
-Filter and sort for casual riders.
-```{r}
-casual_riders <- df %>% 
-  filter(member_casual == "casual") %>% 
-  arrange(-number_of_rides)
-head(casual_riders, 30)
-```
-
-```{r}
-sum(head(casual_riders, 5)$percentage_of_rides)
-```
-```{r}
-sum(head(casual_riders, 10)$percentage_of_rides)
-```
-The top ten stations for casual users account for 13% of rides, with the top five stations accounting for over 8% of rides.
-```{r}
-sum(head(casual_riders, 20)$percentage_of_rides)
-```
-And the top 20 stations account for 19%.
-
-Now consider the top 20 stations for members.
-```{r}
-sum(head(members, 20)$percentage_of_rides)
-```
-Do the same analysis for end stations.
-```{r}
-end_ride_nums <- bike_share_2023_processed %>%
-  # Average the end_lat and end_lng because they differ in the later digits for the same station.
-  select(end_station_id, end_station_name, end_lat, end_lng, member_casual) %>% 
-  group_by(member_casual, end_station_id, end_station_name) %>%
-  summarise(number_of_rides = n(), end_latitude = round(mean(end_lat), 3), end_longitude = round(mean(end_lng), 3), )
-```
-
-```{r}
-df <- end_ride_nums %>% 
-  group_by(member_casual) %>% 
-  reframe(end_station_id, end_station_name, total_rides = sum(number_of_rides), number_of_rides, percentage_of_rides = (number_of_rides / total_rides) * 100)
-```
-
-Now filter and sort for members.
-```{r}
-members <- df %>% 
-  filter(member_casual == "member") %>% 
-  arrange(-number_of_rides)
-head(members, 30)
-```
-Filter and sort for casual riders.
-```{r}
-casual_riders <- df %>% 
-  filter(member_casual == "casual") %>% 
-  arrange(-number_of_rides)
-head(casual_riders, 30)
-```
-
-
-Next I look at some summary statistics.
-
-First mean of all trip ride_lengths for members and casuals.
-```{r}
-bike_share_2023_processed %>% 
-  group_by(member_casual) %>% 
-  summarise(mean_ride_length = mean(ride_length))
-```
-
-
-1. Mean of ride_length for each day of the week for members and casual_riders.
-
-```{r}
-days_of_rides <- bike_share_2023_processed %>% 
-  group_by(day_of_week, member_casual) %>% 
-  summarise(mean_ride_length = mean(ride_length), median_ride_length = median(ride_length))
-head(days_of_rides,14)
-```
-
-```{r}
-ggplot(days_of_rides, mapping = aes(x = day_of_week, y = mean_ride_length, fill = member_casual)) +
-  geom_col() +
-  facet_wrap(~member_casual)
-```
-
-
-```{r}
-ggplot(days_of_rides, mapping = aes(x = day_of_week, y = as.numeric(median_ride_length), fill = member_casual)) +
-  geom_col() +
-  facet_wrap(~member_casual)
-```
-If I just consider the rides that are less than 24 hours, how dose this affect the means?
-```{r}
-days_of_rides <- bike_share_2023_processed %>%
-  filter(ride_length < 1440) %>% 
-  group_by(day_of_week, member_casual) %>% 
-  summarise(mean_ride_length = mean(ride_length), median_ride_length = median(ride_length))
-head(days_of_rides,14)
-```
-```{r}
-ggplot(days_of_rides, mapping = aes(x = day_of_week, y = as.numeric(mean_ride_length), fill = member_casual)) +
-  geom_col() +
-  facet_wrap(~member_casual)
-```
-
-
-2. Mean of ride length by time of day (with rides over 24 hours excluded).
-```{r}
-times_of_rides <- bike_share_2023_processed %>%
-  filter(ride_length < 1440) %>% 
-  group_by(hour_of_day = hour(started_at), member_casual) %>% 
-  summarise(mean_ride_length = mean(ride_length), median_ride_length = median(ride_length))
-head(times_of_rides, 48)
-```
-
-```{r}
-ggplot(times_of_rides, mapping = aes(x = hour_of_day, y = as.numeric(mean_ride_length), fill = member_casual)) +
-  geom_col() +
-  facet_wrap(~member_casual)
-```
-
-```{r}
-ggplot(times_of_rides, mapping = aes(x = hour_of_day, y = as.numeric(median_ride_length), fill = member_casual)) +
-  geom_col() +
-  facet_wrap(~member_casual)
-```
-
-```{r}
-bike_share_2023_processed %>% 
-  filter(ride_length < 60) %>% 
-  ggplot(mapping = aes(x = as.numeric(ride_length), fill = member_casual)) +
-  geom_histogram(binwidth = 5) +
-  facet_grid(member_casual~day_of_week)
-```
-
-
-```{r}
-bike_share_2023_processed %>% 
-  filter(60 < ride_length & ride_length < 720) %>% 
-  ggplot(mapping = aes(x = as.numeric(ride_length), fill = member_casual)) +
-  geom_histogram(binwidth = 60) +
-  facet_grid(member_casual~day_of_week)
-```
-
-
-```{r}
-bike_share_2023_processed %>% 
-  filter(ride_length > 720) %>% 
-  ggplot(mapping = aes(x = as.numeric(ride_length), fill = member_casual)) +
-  geom_histogram(binwidth = 720) +
-  facet_grid(member_casual~day_of_week)
-```
-
-Total number of trips.
-```{r}
-bike_share_2023_processed %>% 
-  group_by(member_casual) %>% 
-  summarise(total_num_trips = n())
-```
-
-Number of trips at weekends.
-```{r}
-bike_share_2023_processed %>% 
-  filter(day_of_week == 1 | day_of_week == 7) %>% 
-  group_by(member_casual) %>% 
-  summarise(num_weekend_trips = n())
-```
-
-Sundays
-```{r}
-bike_share_2023_processed %>% 
-  filter(day_of_week == 1) %>% 
-  group_by(member_casual) %>% 
-  summarise(num_weekend_trips = n())
-```
-Saturdays
-Sundays
-```{r}
-bike_share_2023_processed %>% 
-  filter(day_of_week == 7) %>% 
-  group_by(member_casual) %>% 
-  summarise(num_weekend_trips = n())
-```
-
-## Electric or classic bikes?
-
-```{r}
-bike_share_2023_processed <- read_rds("bike_share_2023_processed.RDS")
-```
-
-
-```{r}
-bike_share_2023_processed %>% 
-  group_by(member_casual, rideable_type) %>% 
-  summarise(num_rides = n())
-```
-
-```{r}
-ggplot(bike_share_2023_processed, mapping = aes(x = member_casual, fill = rideable_type)) +
-  geom_bar(position = position_dodge())
-```
-
-Do these numbers change over the course of the year?
-```{r}
-ggplot(bike_share_2023_processed, mapping = aes(x = month, fill = rideable_type)) +
-  geom_bar(position = position_dodge()) +
-  facet_wrap(~ member_casual)
-```
-Or by day of week?
-```{r}
-ggplot(bike_share_2023_processed, mapping = aes(x = day_of_week, fill = rideable_type)) +
-  geom_bar(position = position_dodge()) +
-  facet_wrap(~ member_casual)
-```
-
 
 
 
