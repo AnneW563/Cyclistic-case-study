@@ -1,6 +1,7 @@
 ---
 title: "Exploration and analysis"
-date: "2024-02-22"
+author: "Anne Wilson"
+date: "2024-02-29"
 output:
   pdf_document: default
   html_document: default
@@ -8,6 +9,14 @@ output:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+```{r}
+knit: (function(input_file, encoding) {
+    out_dir <- 'docs';
+    rmarkdown::render(input_file,
+      encoding=encoding,
+      output_file=file.path(dirname(input_file), out_dir, 'index.html'))})
 ```
 
 ```{r echo = FALSE, include = FALSE}
@@ -269,9 +278,10 @@ ggplot(bike_share_2023_processed, mapping = aes(x = hour(started_at), fill = rid
 These two plots show that a larger proportion of electric bikes are used in the winter and this effect is more pronounced for the casual riders. Also, for both members and casual riders, a higher proportion of rides are made by electric bikes at night. Since there are far fewer rides made in the winter and at night, it is possible this change in the proportion of electric bikes used is partly driven by availability. If there is a limited number of electric bikes, it may be that during summer days they are all in use and only classic bikes are available for many users.
 
 ### Some summary statistics.
-I calculate the mean ride length for members and for casual riders.
+I calculate the mean ride length for members and for casual riders. I filter the data here to look at just those rides that are shorter than 24 hours to avoid the few exceptionally long rides skewing the data.
 ```{r}
 bike_share_2023_processed %>% 
+  filter(ride_length < 1440) %>% 
   group_by(member_casual) %>% 
   summarise(mean_ride_length = mean(ride_length))
 ```
