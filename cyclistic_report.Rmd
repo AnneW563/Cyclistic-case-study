@@ -1,8 +1,10 @@
 ---
-title: "Cyclistic bike-share analysis"
+title: "A report on the findings of the Cyclistic bike-share analysis"
 # author: "Anne Wilson"
 date: "2024-02-29"
-output: md_document
+output: 
+  github_document:
+    dev: jpeg
 ---
 
 ```{r setup, include=FALSE}
@@ -14,14 +16,7 @@ library(tidyverse)
 bike_share_2023_processed <- read_rds("bike_share_2023_processed.RDS")
 ```
 
-
 # Case study: How does a bike-share navigate speedy success?
-
-This is a case study completed as part of the Google Data Analytics Professional Certificate. The scenario is that a fictional bike-sharing company, Cyclistic, operating in Chicago, wishes to encourage more of their casual riders to become annual members. The data used is publicly available data from the City of Chicago’s Divvy bicycle sharing service. The license details for this data can be found [here](https://divvybikes.com/data-license-agreement).
-
-I have been tasked with answering the following question.
-
-**How do annual members and casual riders use Cyclistic bikes differently?**
 
 ## Business task
 Identify how annual members and casual riders differ in their use of Cyclistic bikes to understand why casual riders might choose to buy Cyclistic annual memberships and how digital media could influence them to do so.
