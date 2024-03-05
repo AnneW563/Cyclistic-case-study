@@ -2,19 +2,11 @@
 title: "Importing Bike-share Data"
 author: "Anne Wilson"
 date: "2024-02-29"
-output: html_document
+output: github_document
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE)
-```
-
-```{r}
-knit: (function(input_file, encoding) {
-    out_dir <- 'docs';
-    rmarkdown::render(input_file,
-      encoding=encoding,
-      output_file=file.path(dirname(input_file), out_dir, 'index.html'))})
 ```
 
 ## Loading required packages

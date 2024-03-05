@@ -3,20 +3,12 @@ title: "Exploration and analysis"
 author: "Anne Wilson"
 date: "2024-02-29"
 output:
-  pdf_document: default
-  html_document: default
+  github_document:
+    dev: jpeg
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
-```
-
-```{r}
-knit: (function(input_file, encoding) {
-    out_dir <- 'docs';
-    rmarkdown::render(input_file,
-      encoding=encoding,
-      output_file=file.path(dirname(input_file), out_dir, 'index.html'))})
 ```
 
 ```{r echo = FALSE, include = FALSE}
